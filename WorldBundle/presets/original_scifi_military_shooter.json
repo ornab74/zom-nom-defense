@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "preset_id": "aegis_fall",
+  "display_name": "Aegis Fall",
+  "genre": ["science-fiction", "military-shooter", "vehicle-combat", "campaign"],
+  "legal_note": "Original world and asset direction. Do not copy or extract protected characters, maps, vehicles, weapons, audio, names, logos, or story content from existing games.",
+  "world_prompt": "Create an original high-fidelity science-fiction military shooter world built around a fractured orbital defense network, flooded megastructures, ancient machine ecologies, human expeditionary forces, and an opposing coalition of engineered species. The game should support readable arena combat, tactical vehicles, vertical traversal, large exterior spaces, authored interiors, cooperative encounters, and cinematic but gameplay-first art direction.",
+  "visual_language": {
+    "human": "industrial expeditionary equipment, compact silhouettes, ceramic armor, exposed maintenance details, faded rescue orange, gunmetal, navy fabric, practical modularity",
+    "ancient": "monumental pale mineral-composite structures, impossible precision, restrained cyan energy, geometric erosion, vast negative spaces",
+    "coalition": "asymmetric bio-ceramic technology, dark violet composites, amber energy, layered organic armor, curved but mechanically believable construction",
+    "nature": "wind-shaped alien conifers, silver grass, deep moss, basalt shelves, cyan bioluminescent understory used sparingly",
+    "lighting": "high dynamic range natural light, readable shadow values, controlled volumetrics, emissive accents that never replace form"
+  },
+  "campaign": {
+    "mission_count": 10,
+    "encounter_seconds_target": [35, 210],
+    "quiet_space_ratio": 0.28,
+    "vehicle_mission_ratio": 0.35,
+    "interior_ratio": 0.42,
+    "exterior_ratio": 0.58
+  },
+  "player_metrics": {
+    "height_m": 1.85,
+    "walk_speed_mps": 4.8,
+    "sprint_speed_mps": 7.2,
+    "jump_height_m": 1.15,
+    "step_height_m": 0.45,
+    "door_clear_width_m": 1.4,
+    "corridor_width_m": [2.4, 5.5],
+    "cover_height_m": [0.85, 1.35]
+  },
+  "asset_budgets": {
+    "hero_character_triangles": 120000,
+    "standard_character_triangles": 70000,
+    "hero_vehicle_triangles": 180000,
+    "standard_vehicle_triangles": 100000,
+    "hero_weapon_triangles": 80000,
+    "architecture_module_triangles": 60000,
+    "tree_triangles": 45000,
+    "texture_resolution_hero": 4096,
+    "texture_resolution_standard": 2048,
+    "lod_ratios": [1.0, 0.5, 0.22, 0.08]
+  },
+  "required_systems": [
+    "shield_and_health",
+    "two_weapon_inventory",
+    "grenade_family",
+    "melee",
+    "vehicle_seats",
+    "vehicle_damage_zones",
+    "squad_commands",
+    "cover_selection",
+    "encounter_director",
+    "checkpointing",
+    "streaming_zones",
+    "navigation_links",
+    "audio_occlusion",
+    "difficulty_profiles",
+    "accessibility_profiles"
+  ]
+}
