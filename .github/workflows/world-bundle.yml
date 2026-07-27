@@ -1,0 +1,76 @@
+name: World Bundle Part One
+
+on:
+  pull_request:
+    paths:
+      - "WorldBundle/**"
+      - "AssetFoundry/**"
+      - "Universal_PolyFlow_Asset_Compiler.For.Google.Colab.ipynb"
+      - ".github/workflows/world-bundle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-world-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile Python tools
+        run: |
+          python -m py_compile \
+            WorldBundle/tools/world_bundle_planner.py \
+            WorldBundle/tools/generate_stage_notebooks.py \
+            WorldBundle/tools/godot_stitcher.py \
+            AssetFoundry/tools/asset_catalog.py \
+            AssetFoundry/tools/generate_asset_notebooks.py \
+            AssetFoundry/tools/manual_colab_runner.py \
+            AssetFoundry/tools/mapping_surfer.py
+      - name: Generate staged asset queue
+        run: |
+          python WorldBundle/tools/world_bundle_planner.py \
+            --preset WorldBundle/presets/zom_nom_defense.json \
+            --matrix WorldBundle/notebook_matrix.json \
+            --output /tmp/zom_nom_bundle
+          test -s /tmp/zom_nom_bundle/asset_jobs.jsonl
+          test -s /tmp/zom_nom_bundle/bundle_summary.json
+      - name: Generate 36 focused world-stage notebooks
+        run: |
+          python WorldBundle/tools/generate_stage_notebooks.py \
+            --matrix WorldBundle/notebook_matrix.json \
+            --output /tmp/zom_nom_stage_notebooks
+          test "$(find /tmp/zom_nom_stage_notebooks -name '*.ipynb' | wc -l)" -eq 36
+      - name: Generate expanded AssetFoundry catalog and notebooks
+        run: |
+          python AssetFoundry/tools/asset_catalog.py
+          python AssetFoundry/tools/generate_asset_notebooks.py \
+            --output /tmp/zom_nom_asset_notebooks \
+            --repository ornab74/zom-nom-defense \
+            --branch "$GITHUB_HEAD_REF"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          catalog = json.loads(Path('AssetFoundry/generated/asset_catalog.json').read_text())
+          notebook_count = len(list(Path('/tmp/zom_nom_asset_notebooks').rglob('*.ipynb')))
+          assert catalog['asset_count'] >= 200, catalog['asset_count']
+          assert notebook_count == catalog['asset_count'], (notebook_count, catalog['asset_count'])
+          print('AssetFoundry notebooks:', notebook_count)
+          PY
+      - name: Run WorldBundle unit tests
+        run: python -m unittest discover -s WorldBundle/tests -t . -p "test*.py" -v
+      - name: Run AssetFoundry unit tests
+        run: python -m unittest discover -s AssetFoundry/tests -t . -p "test*.py" -v
+      - name: Upload generated planning artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zom-nom-world-and-asset-foundry
+          path: |
+            /tmp/zom_nom_bundle
+            /tmp/zom_nom_stage_notebooks
+            /tmp/zom_nom_asset_notebooks
+            AssetFoundry/generated/asset_catalog.json
+          retention-days: 14
