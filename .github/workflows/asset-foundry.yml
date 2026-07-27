@@ -1,0 +1,177 @@
+name: Asset Foundry
+
+on:
+  workflow_dispatch:
+    inputs:
+      asset_ids:
+        description: "Comma-separated asset IDs, or all"
+        required: true
+        default: "all"
+      quality:
+        description: "draft, production, or cinematic"
+        required: true
+        default: "production"
+      prompt_job_limit:
+        description: "Maximum coherent prompt jobs to package"
+        required: true
+        default: "20000"
+      colab_job_id:
+        description: "Optional completed Colab/Vertex job ID to import"
+        required: false
+        default: ""
+  pull_request:
+    paths:
+      - "AssetFoundry/**"
+      - "Common/Systems/horde/**"
+      - ".github/workflows/asset-foundry.yml"
+
+permissions:
+  contents: write
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: asset-foundry-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-manifest:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate requests and build matrix
+        id: matrix
+        env:
+          REQUESTED: ${{ inputs.asset_ids || 'all' }}
+        run: |
+          python AssetFoundry/tools/manifest_cli.py validate
+          python AssetFoundry/tools/manifest_cli.py matrix "$REQUESTED" >> "$GITHUB_OUTPUT"
+      - name: Compile coherent generation library
+        env:
+          QUALITY: ${{ inputs.quality || 'production' }}
+          JOB_LIMIT: ${{ inputs.prompt_job_limit || '20000' }}
+        run: |
+          python AssetFoundry/prompts/compile_giga_library.py \
+            --quality "$QUALITY" \
+            --limit "$JOB_LIMIT" \
+            --output AssetFoundry/generated_prompt_jobs.jsonl \
+            --summary AssetFoundry/generated_prompt_summary.json
+          test "$(wc -l < AssetFoundry/generated_prompt_jobs.jsonl)" -gt 0
+      - name: Decode verified reference boards
+        run: |
+          python AssetFoundry/tools/decode_reference_seeds.py \
+            --pack AssetFoundry/reference_seed_pack.json \
+            --output AssetFoundry/references/generated
+      - name: Build deterministic PBR material seeds
+        run: |
+          python AssetFoundry/tools/build_material_seeds.py \
+            --manifest AssetFoundry/materials/material_seed_manifest.json \
+            --output AssetFoundry/material_preview \
+            --resolution 128
+      - name: Upload generation request
+        uses: actions/upload-artifact@v4
+        with:
+          name: asset-foundry-request
+          path: |
+            AssetFoundry/asset_manifest.json
+            AssetFoundry/generated_prompt_jobs.jsonl
+            AssetFoundry/generated_prompt_summary.json
+            AssetFoundry/reference_seed_pack.json
+            AssetFoundry/references/generated
+            AssetFoundry/materials/material_seed_manifest.json
+            AssetFoundry/material_preview
+            AssetFoundry/colab/asset_foundry_colab.ipynb
+          retention-days: 14
+
+  import-colab-results:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.colab_job_id != '' }}
+    needs: validate-manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_ASSET_FOUNDRY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Download completed batch
+        env:
+          JOB_ID: ${{ inputs.colab_job_id }}
+          BUCKET: ${{ secrets.ASSET_FOUNDRY_BUCKET }}
+        run: |
+          mkdir -p AssetFoundry/incoming
+          gcloud storage cp --recursive \
+            "gs://${BUCKET}/jobs/${JOB_ID}/output/*" \
+            AssetFoundry/incoming/
+      - name: Install validators
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender
+          pip install pillow numpy trimesh pygltflib jsonschema
+      - name: Validate and promote
+        run: |
+          python AssetFoundry/tools/validate_assets.py \
+            --incoming AssetFoundry/incoming \
+            --manifest AssetFoundry/asset_manifest.json \
+            --report AssetFoundry/reports/${{ inputs.colab_job_id }}.json
+          python AssetFoundry/tools/promote_assets.py \
+            --incoming AssetFoundry/incoming \
+            --destination Assets/Generated \
+            --manifest AssetFoundry/asset_manifest.json
+          python AssetFoundry/tools/build_material_seeds.py \
+            --manifest AssetFoundry/materials/material_seed_manifest.json \
+            --output Assets/Generated/Materials
+          python AssetFoundry/tools/decode_reference_seeds.py \
+            --output Assets/Generated/ReferenceBoards
+      - name: Commit validated assets
+        run: |
+          git config user.name "zom-nom-asset-bot"
+          git config user.email "asset-bot@users.noreply.github.com"
+          git add Assets/Generated AssetFoundry/reports
+          git diff --cached --quiet || git commit -m "Import validated generated assets ${{ inputs.colab_job_id }}"
+          git push
+
+  static-foundry-tests:
+    if: ${{ github.event_name == 'pull_request' }}
+    needs: validate-manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run Asset Foundry unit tests
+        run: python -m unittest discover AssetFoundry/tests -v
+      - name: Compile deterministic prompt sample
+        run: |
+          python AssetFoundry/prompts/compile_giga_library.py \
+            --quality production \
+            --limit 2000 \
+            --output /tmp/zom_nom_prompt_jobs.jsonl \
+            --summary /tmp/zom_nom_prompt_summary.json
+          test "$(wc -l < /tmp/zom_nom_prompt_jobs.jsonl)" -eq 2000
+      - name: Verify embedded references
+        run: |
+          python AssetFoundry/tools/decode_reference_seeds.py --output /tmp/zom_nom_references
+          test "$(find /tmp/zom_nom_references -type f | wc -l)" -eq 4
+      - name: Verify pure-Python PBR build
+        run: |
+          python AssetFoundry/tools/build_material_seeds.py \
+            --output /tmp/zom_nom_materials \
+            --resolution 64
+          test -f /tmp/zom_nom_materials/material_index.json
+          test "$(find /tmp/zom_nom_materials -name '*_albedo.png' | wc -l)" -eq 12
+          test "$(find /tmp/zom_nom_materials -name '*_normal.png' | wc -l)" -eq 12
