@@ -11,6 +11,10 @@ on:
         description: "draft, production, or cinematic"
         required: true
         default: "production"
+      prompt_job_limit:
+        description: "Maximum coherent prompt jobs to package"
+        required: true
+        default: "20000"
       colab_job_id:
         description: "Optional completed Colab/Vertex job ID to import"
         required: false
@@ -18,6 +22,7 @@ on:
   pull_request:
     paths:
       - "AssetFoundry/**"
+      - "Common/Systems/horde/**"
       - ".github/workflows/asset-foundry.yml"
 
 permissions:
@@ -48,12 +53,40 @@ jobs:
         run: |
           python AssetFoundry/tools/manifest_cli.py validate
           python AssetFoundry/tools/manifest_cli.py matrix "$REQUESTED" >> "$GITHUB_OUTPUT"
+      - name: Compile coherent generation library
+        env:
+          QUALITY: ${{ inputs.quality || 'production' }}
+          JOB_LIMIT: ${{ inputs.prompt_job_limit || '20000' }}
+        run: |
+          python AssetFoundry/prompts/compile_giga_library.py \
+            --quality "$QUALITY" \
+            --limit "$JOB_LIMIT" \
+            --output AssetFoundry/generated_prompt_jobs.jsonl \
+            --summary AssetFoundry/generated_prompt_summary.json
+          test "$(wc -l < AssetFoundry/generated_prompt_jobs.jsonl)" -gt 0
+      - name: Decode verified reference boards
+        run: |
+          python AssetFoundry/tools/decode_reference_seeds.py \
+            --pack AssetFoundry/reference_seed_pack.json \
+            --output AssetFoundry/references/generated
+      - name: Build deterministic PBR material seeds
+        run: |
+          python AssetFoundry/tools/build_material_seeds.py \
+            --manifest AssetFoundry/materials/material_seed_manifest.json \
+            --output AssetFoundry/material_preview \
+            --resolution 128
       - name: Upload generation request
         uses: actions/upload-artifact@v4
         with:
           name: asset-foundry-request
           path: |
             AssetFoundry/asset_manifest.json
+            AssetFoundry/generated_prompt_jobs.jsonl
+            AssetFoundry/generated_prompt_summary.json
+            AssetFoundry/reference_seed_pack.json
+            AssetFoundry/references/generated
+            AssetFoundry/materials/material_seed_manifest.json
+            AssetFoundry/material_preview
             AssetFoundry/colab/asset_foundry_colab.ipynb
           retention-days: 14
 
@@ -98,6 +131,11 @@ jobs:
             --incoming AssetFoundry/incoming \
             --destination Assets/Generated \
             --manifest AssetFoundry/asset_manifest.json
+          python AssetFoundry/tools/build_material_seeds.py \
+            --manifest AssetFoundry/materials/material_seed_manifest.json \
+            --output Assets/Generated/Materials
+          python AssetFoundry/tools/decode_reference_seeds.py \
+            --output Assets/Generated/ReferenceBoards
       - name: Commit validated assets
         run: |
           git config user.name "zom-nom-asset-bot"
@@ -115,4 +153,25 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: python -m unittest discover AssetFoundry/tests -v
+      - name: Run Asset Foundry unit tests
+        run: python -m unittest discover AssetFoundry/tests -v
+      - name: Compile deterministic prompt sample
+        run: |
+          python AssetFoundry/prompts/compile_giga_library.py \
+            --quality production \
+            --limit 2000 \
+            --output /tmp/zom_nom_prompt_jobs.jsonl \
+            --summary /tmp/zom_nom_prompt_summary.json
+          test "$(wc -l < /tmp/zom_nom_prompt_jobs.jsonl)" -eq 2000
+      - name: Verify embedded references
+        run: |
+          python AssetFoundry/tools/decode_reference_seeds.py --output /tmp/zom_nom_references
+          test "$(find /tmp/zom_nom_references -type f | wc -l)" -eq 4
+      - name: Verify pure-Python PBR build
+        run: |
+          python AssetFoundry/tools/build_material_seeds.py \
+            --output /tmp/zom_nom_materials \
+            --resolution 64
+          test -f /tmp/zom_nom_materials/material_index.json
+          test "$(find /tmp/zom_nom_materials -name '*_albedo.png' | wc -l)" -eq 12
+          test "$(find /tmp/zom_nom_materials -name '*_normal.png' | wc -l)" -eq 12
