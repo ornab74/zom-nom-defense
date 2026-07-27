@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "resolution": 256,
+  "materials": [
+    {"id":"pool_coping_weathered","family":"pool","base_color":[202,188,157],"accent_color":[115,126,118],"roughness":0.72,"metallic":0.0,"scale":9.0,"cracks":0.18,"stains":0.22},
+    {"id":"pool_tile_cyan","family":"pool","base_color":[37,148,166],"accent_color":[18,89,111],"roughness":0.28,"metallic":0.0,"scale":16.0,"grout":0.08,"stains":0.12},
+    {"id":"stucco_warm_weathered","family":"architecture","base_color":[207,176,132],"accent_color":[151,119,87],"roughness":0.86,"metallic":0.0,"scale":7.0,"cracks":0.12,"stains":0.2},
+    {"id":"asphalt_charcoal_cracked","family":"road","base_color":[48,49,52],"accent_color":[86,80,70],"roughness":0.93,"metallic":0.0,"scale":5.0,"cracks":0.32,"stains":0.12},
+    {"id":"wood_fence_sunbleached","family":"architecture","base_color":[139,112,78],"accent_color":[83,66,49],"roughness":0.88,"metallic":0.0,"scale":12.0,"grain":0.65,"stains":0.18},
+    {"id":"paint_teal_faded","family":"vehicle","base_color":[47,116,117],"accent_color":[181,109,57],"roughness":0.46,"metallic":0.52,"scale":6.0,"chips":0.16,"stains":0.1},
+    {"id":"paint_oxidized_orange","family":"vehicle","base_color":[164,78,39],"accent_color":[71,47,39],"roughness":0.67,"metallic":0.48,"scale":6.0,"chips":0.25,"stains":0.2},
+    {"id":"scrap_metal_galvanized","family":"defense","base_color":[126,133,132],"accent_color":[132,76,39],"roughness":0.58,"metallic":0.82,"scale":8.0,"scratches":0.45,"stains":0.18},
+    {"id":"cloth_workwear_teal","family":"character","base_color":[45,91,91],"accent_color":[29,50,47],"roughness":0.91,"metallic":0.0,"scale":22.0,"weave":0.7,"stains":0.24},
+    {"id":"cloth_athletic_plum","family":"character","base_color":[91,55,88],"accent_color":[42,30,47],"roughness":0.76,"metallic":0.0,"scale":26.0,"weave":0.48,"stains":0.16},
+    {"id":"skin_zombie_muted","family":"character","base_color":[112,132,101],"accent_color":[75,87,66],"roughness":0.78,"metallic":0.0,"scale":10.0,"mottling":0.46,"stains":0.15},
+    {"id":"grass_dry_olive","family":"environment","base_color":[103,108,60],"accent_color":[151,125,63],"roughness":0.96,"metallic":0.0,"scale":18.0,"blades":0.72,"stains":0.08}
+  ]
+}
