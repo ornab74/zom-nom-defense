@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "preset_id": "zom_nom_defense",
+  "display_name": "Zom Nom Defense",
+  "game_type": "third-person tactical zombie survival defense",
+  "world_prompt": "Generate the complete original production asset, map, mechanics, animation, audio, VFX, UI, AI, and Godot integration bundle for Zom Nom Defense. Preserve its grounded stylized-realistic suburban apocalypse identity, readable humor, tactical defense-building loop, multi-level pool-house combat, road and vehicle defense, stair-climbing zombies, pool interactions, escalating horde pressure, and strong top-down gameplay readability.",
+  "visual_language": {
+    "identity": "grounded stylized realism with handcrafted suburban details and readable survival-comedy",
+    "camera": "three-quarter tactical camera with clear silhouettes and uncluttered interaction zones",
+    "palette": ["sun-faded teal", "pool cyan", "warm stucco", "charcoal asphalt", "oxidized orange", "dry olive", "cream plastic", "deep plum"],
+    "material_rule": "physically plausible weathering, restrained grime, no baked lighting, no logos, no generic cyberpunk",
+    "content_rule": "original assets only; no copied third-party game content"
+  },
+  "scenarios": [
+    {
+      "id": "pool_house_siege",
+      "display_name": "Pool House Siege",
+      "description": "Defend survivors across a two-story suburban home, garage, balcony, pool deck, yard, roof edges, and utility shed.",
+      "routes": ["front_yard", "side_gate", "pool_deck", "garage", "stairs", "balcony", "roof", "pool_water"]
+    },
+    {
+      "id": "highway_last_stand",
+      "display_name": "Highway Last Stand",
+      "description": "Protect and upgrade the survivor muscle car through a blocked highway, gas station, motel edge, culvert, drainage ditch, and wreck field.",
+      "routes": ["road_center", "left_shoulder", "right_shoulder", "ditch", "culvert", "overpass", "wreck_gap"]
+    }
+  ],
+  "asset_budgets": {
+    "max_assets": 1200,
+    "max_variants_per_asset": 12,
+    "hero_texture_resolution": 4096,
+    "standard_texture_resolution": 2048,
+    "minor_texture_resolution": 1024,
+    "hero_lods": 4,
+    "standard_lods": 3,
+    "target_peak_visible_triangles": 3500000,
+    "target_peak_zombies": 120
+  },
+  "generation_order": [
+    "game_bible", "materials", "maps", "architecture", "foliage", "props", "characters", "vehicles", "defenses", "animation", "vfx", "audio", "ui", "ai", "godot_stitch", "validation"
+  ],
+  "security": {
+    "execute_model_code": false,
+    "allow_remote_urls": false,
+    "allow_third_party_asset_extraction": false,
+    "require_sha256": true,
+    "require_provenance": true,
+    "require_schema_validation": true
+  }
+}
