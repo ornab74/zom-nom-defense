@@ -12,22 +12,26 @@ def source(lines: str) -> list[str]:
 
 
 def notebook(job: AssetJob, repository: str, branch: str) -> dict:
-    contract = json.dumps(job.__dict__, indent=2)
+    contract_json = json.dumps(job.__dict__, separators=(",", ":"))
+    contract_literal = repr(contract_json)
     title = f"# Zom Nom AssetFoundry — {job.display_name}"
     setup = f'''#@title Clone compiler and select asset contract
 REPOSITORY = {repository!r}
 BRANCH = {branch!r}
 ASSET_ID = {job.asset_id!r}
+!rm -rf /content/zom-nom-defense
 !git clone --depth 1 --branch "$BRANCH" "https://github.com/$REPOSITORY.git" /content/zom-nom-defense
 %cd /content/zom-nom-defense
 '''
     contract_cell = f'''#@title Immutable repository-owned generation contract
 import json
 from pathlib import Path
-ASSET_CONTRACT = json.loads(r'''{contract}''')
+ASSET_CONTRACT = json.loads({contract_literal})
 OUTPUT_ROOT = Path('/content/asset_output') / ASSET_CONTRACT['asset_id']
 OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-(OUTPUT_ROOT / 'asset_contract.json').write_text(json.dumps(ASSET_CONTRACT, indent=2))
+(OUTPUT_ROOT / 'asset_contract.json').write_text(
+    json.dumps(ASSET_CONTRACT, indent=2), encoding='utf-8'
+)
 print(json.dumps(ASSET_CONTRACT, indent=2))
 '''
     execution = '''#@title Run the Universal PolyFlow compiler in manual mode
