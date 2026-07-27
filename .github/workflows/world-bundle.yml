@@ -1,0 +1,50 @@
+name: World Bundle Part One
+
+on:
+  pull_request:
+    paths:
+      - "WorldBundle/**"
+      - ".github/workflows/world-bundle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-world-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile Python tools
+        run: |
+          python -m py_compile \
+            WorldBundle/tools/world_bundle_planner.py \
+            WorldBundle/tools/generate_stage_notebooks.py \
+            WorldBundle/tools/godot_stitcher.py
+      - name: Generate staged asset queue
+        run: |
+          python WorldBundle/tools/world_bundle_planner.py \
+            --preset WorldBundle/presets/zom_nom_defense.json \
+            --matrix WorldBundle/notebook_matrix.json \
+            --output /tmp/zom_nom_bundle
+          test -s /tmp/zom_nom_bundle/asset_jobs.jsonl
+          test -s /tmp/zom_nom_bundle/bundle_summary.json
+      - name: Generate 36 focused Colab notebooks
+        run: |
+          python WorldBundle/tools/generate_stage_notebooks.py \
+            --matrix WorldBundle/notebook_matrix.json \
+            --output /tmp/zom_nom_notebooks
+          test "$(find /tmp/zom_nom_notebooks -name '*.ipynb' | wc -l)" -eq 36
+      - name: Run unit tests
+        run: python -m unittest discover -s WorldBundle/tests -t . -v
+      - name: Upload generated planning artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zom-nom-world-bundle-part-one
+          path: |
+            /tmp/zom_nom_bundle
+            /tmp/zom_nom_notebooks
+          retention-days: 14
