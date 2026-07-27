@@ -1,63 +1,113 @@
-# Zom Nom Asset Foundry
+# Zom Nom Defense AssetFoundry
 
-This directory defines a reproducible GPU asset pipeline for the game's pool house, vehicles, foliage, zombies, defenses, props, textures, collisions, and LODs.
+AssetFoundry is the manual-generation layer for producing hundreds of focused Zom Nom Defense assets in Google Colab, downloading each completed bundle, and later stitching uploaded outputs into the Godot project.
 
-## Architecture
+## Manual workflow
 
-1. `asset_manifest.json` is the source of truth.
-2. GitHub Actions validates requests and publishes a generation bundle.
-3. A Colab or Colab Enterprise GPU notebook consumes the bundle.
-4. The notebook generates one isolated asset directory per manifest entry.
-5. A topology/refinement stage repairs geometry, creates UVs, bakes PBR maps, and creates LODs.
-6. Results are uploaded to a versioned Cloud Storage job folder.
-7. The `Asset Foundry` workflow imports a specified completed job.
-8. Blender/trimesh validators reject missing maps, broken packaging, oversized outputs, and metadata failures.
-9. Validated assets are promoted under `Assets/Generated/<category>/<asset_id>/`.
+1. Generate the repository-owned asset catalog.
+2. Generate the focused notebook suite.
+3. Run notebooks individually in Colab.
+4. Download each validated `<asset_id>_asset_bundle.zip`.
+5. Extract completed bundles beneath `incoming/<asset_id>/` without renaming IDs.
+6. Run the mapping surfacer.
+7. Review the generated Godot patch before copying it into the project.
 
-GitHub-hosted runners are intentionally not treated as the main generation GPUs. GitHub orchestrates, reviews, hashes, and promotes; Colab or Vertex supplies accelerator compute.
+No Colab is allowed to push generated assets directly into the repository. This keeps API keys, model caches, unreviewed meshes, and failed generations outside Git history.
 
-## Flow matching and topology refinement
+## Generate the expanded catalog
 
-The production design separates generation from repair:
-
-- **Global proposal:** an image-conditioned 3D model proposes geometry and appearance.
-- **Vertex flow:** vertices are optimized against silhouette, normal consistency, edge-length, Laplacian, and surface-distance objectives.
-- **Topology repair:** non-manifold edges, duplicate vertices, self intersections, floating components, and inverted normals are repaired or rejected.
-- **Retopology:** hard-surface and organic presets use different decimation and quad-remesh targets.
-- **Game packaging:** UV unwrap, PBR bake, LOD generation, collision generation, origin normalization, metric scaling, and GLB export.
-
-The repository begins with a practical deterministic repair pipeline. A trainable DiT/GNN topology refiner can later replace the proposal/refinement module without changing the manifest or promotion contract.
-
-## Colab operation
-
-Open `colab/asset_foundry_colab.ipynb`, then set:
-
-- repository and branch
-- requested asset IDs
-- Cloud Storage bucket
-- job ID
-- generation quality
-
-The notebook writes to:
-
-```text
-gs://<bucket>/jobs/<job-id>/output/<asset-id>/
+```bash
+python AssetFoundry/tools/asset_catalog.py
 ```
 
-Each asset folder must contain:
+The catalog expands architecture, pool structures, highway structures, foliage, survivors, zombies, vehicles, defenses, props, UI, and VFX into more than 200 concrete asset jobs. Every job records its exact Godot destination, specialized backend, prompt, scale, topology budget, textures, LODs, collision, rig, animation list, scenario tags, and validation profile.
 
-- `<asset-id>.glb`
-- `<asset-id>_albedo.png`
-- every required PBR map listed in the manifest
-- `metadata.json`
-- optional previews and source meshes
+## Generate hundreds of focused Colabs
 
-Then run the GitHub workflow with the same job ID.
+```bash
+python AssetFoundry/tools/generate_asset_notebooks.py \
+  --output AssetFoundry/Notebooks \
+  --repository ornab74/zom-nom-defense \
+  --branch main
+```
+
+Notebooks are placed beneath:
+
+```text
+AssetFoundry/Notebooks/<category>/<family>/<asset_id>.ipynb
+```
+
+Each notebook is a thin launcher. Executable compiler logic remains in reviewed repository modules, so security fixes and backend improvements propagate across the full suite instead of leaving hundreds of divergent notebook copies.
+
+## Universal compiler worker
+
+`Universal_PolyFlow_Asset_Compiler.For.Google.Colab.ipynb` remains the advanced universal worker. AssetFoundry mode selects an immutable catalog contract and writes:
+
+- `game_asset.glb`
+- PBR textures
+- render and thumbnail previews
+- optional rig and animation files
+- collision and LOD metadata
+- `asset_contract.json`
+- `asset_mapping_surface.json`
+- `validation.json`
+- checksums and provenance
+- a manual download ZIP
+
+The tree path remains the most specialized backend. Other backend families are staged independently so modular architecture, characters, vehicles, defenses, props, UI, VFX, and maps can advance without pretending one primitive assembler solves every topology class.
+
+## PolyFlow-compatible topology contract
+
+The foundry uses a continuous per-vertex state contract:
+
+```text
+z_i = [p_i, n_i, e_i]
+```
+
+where position, normal, and topology embedding are refined together. Candidate adjacency is decoded from spacetime distance:
+
+```text
+d_st(e_i,e_j) = ||e_i^s-e_j^s||² - ||e_i^t-e_j^t||²
+```
+
+and is then subjected to deterministic manifold, face-winding, component, self-intersection, UV, scale, LOD, collision, rig, animation, and Godot-import checks. The repository implements compatible contracts and deterministic refiners; it does not claim to contain unreleased research checkpoints.
+
+The design is informed by PolyFlow's continuous topology embedding, joint position/normal/topology state, parallel flow matching, and explicit vertex-count control.
+
+## Mapping surfacer
+
+After manually uploading completed bundles:
+
+```bash
+python AssetFoundry/tools/mapping_surfer.py \
+  --incoming incoming \
+  --output AssetFoundry/output/godot_patch \
+  --zip AssetFoundry/output/zom_nom_asset_patch.zip
+```
+
+The mapping surfacer never trusts a bundle-provided destination. It resolves placement from `asset_catalog.py`, validates the asset ID, rejects traversal and symlinks, enforces extension and byte limits, hashes every installed file, writes GLB wrapper scenes and mapping metadata, and builds:
+
+- `Assets/Generated/<category>/<asset_id>/...`
+- `Common/Systems/asset_foundry/asset_foundry_registry.json`
+- `Common/Systems/asset_foundry/asset_foundry_registry.gd`
+- `ASSET_FOUNDRY_INSTALL.json`
+- a reviewable patch ZIP
+
+Missing bundles remain listed as missing. Invalid bundles remain quarantined with an explicit reason.
 
 ## Security
 
-Use GitHub OpenID Connect with Google Workload Identity Federation. Do not store long-lived Google service-account JSON keys in repository secrets. Limit the service account to the asset bucket and required job execution APIs.
+- model-written Python is never executed
+- bundle destinations are advisory and ignored during installation
+- only repository-catalog IDs can be installed
+- remote asset URLs are disabled
+- paths must resolve beneath the bundle root
+- symlinks are rejected
+- approved file extensions and byte limits are enforced
+- generated files are hashed
+- provenance records model, prompt, seed, software, license, and validation state
+- generated or compatible CC0 inputs only
 
-## Licensing
+## Relationship to WorldBundle
 
-Only generated assets and explicitly compatible CC0 inputs may enter `Assets/Generated`. Every generated metadata file should record model, prompt, seeds, source conditioning images, licenses, software versions, and checksums.
+`WorldBundle` plans scenario-level generation and integration across 36 stages. `AssetFoundry` expands those stages into hundreds of concrete manual generation jobs. Completed AssetFoundry bundles are mapped into Godot first; WorldBundle can then assemble map, scenario, navigation, and gameplay-level patches from the validated registry.
